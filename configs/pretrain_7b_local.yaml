@@ -26,8 +26,8 @@ tokenizer:
   sample_chars_for_training: 20000000
 
 data:
-  seq_len: 2048
-  num_workers: 2
+  seq_len: 512
+  num_workers: 0
   shuffle_buffer: 10000
   sources:
     - name: fineweb_edu
@@ -35,29 +35,28 @@ data:
       config_name: sample-10BT
       split: train
       text_field: text
-      weight: 0.45
+      weight: 0.50
       streaming: true
     - name: fineweb
       dataset_id: HuggingFaceFW/fineweb
       config_name: sample-10BT
       split: train
       text_field: text
-      weight: 0.25
+      weight: 0.30
       streaming: true
-    - name: starcoder_code
-      dataset_id: bigcode/starcoderdata
-      config_name: null
-      data_dir: python
+    - name: code_parrot
+      dataset_id: transformersbook/codeparrot
+      config_name: clean
       split: train
       text_field: content
-      weight: 0.15
+      weight: 0.10
       streaming: true
     - name: open_web_math
       dataset_id: open-web-math/open-web-math
       config_name: null
       split: train
       text_field: text
-      weight: 0.10
+      weight: 0.05
       streaming: true
     - name: wikipedia_en
       dataset_id: wikimedia/wikipedia
