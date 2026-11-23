@@ -12,11 +12,8 @@ if [[ "$MODE" == "smoke" ]]; then
   exit 0
 fi
 
-NUM_GPUS=$(python3 -c "import torch; print(torch.cuda.device_count() if torch.cuda.is_available() else 0)")
-echo "Detected GPUs: $NUM_GPUS"
-
-if [[ "$NUM_GPUS" -gt 1 ]]; then
-  torchrun --standalone --nproc_per_node="$NUM_GPUS" -m src.train --config "$CONFIG_PATH"
-else
-  python3 -m src.train --config "$CONFIG_PATH"
-fi
+# Force single GPU on Kaggle (7B + optimizer states won't fit on 16GB x2 with DDP)
+# Use gradient accumulation for effective batch size
+echo "Using single GPU (7B model requires ~14GB weights + optimizer states)"
+export CUDA_VISIBLE_DEVICES=0
+python3 -m src.train --config "$CONFIG_PATH"

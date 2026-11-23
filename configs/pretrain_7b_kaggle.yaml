@@ -24,12 +24,16 @@ tokenizer:
   tokenizer_out_dir: /kaggle/working/tokenizer_65k
   vocab_size: 65536
   sample_chars_for_training: 20000000
+  # Offline mode: set these if you have local data
+  # local_data_dir: /kaggle/input/my-corpus  # directory with .jsonl/.parquet files
+  # local_fallback_path: /kaggle/input/my-tokenizer  # local tokenizer directory
 
 data:
   seq_len: 2048
   num_workers: 2
   shuffle_buffer: 10000
   sources:
+    # Online mode (requires Internet=On):
     - name: fineweb_edu
       dataset_id: HuggingFaceFW/fineweb-edu
       config_name: sample-10BT
@@ -66,6 +70,10 @@ data:
       text_field: text
       weight: 0.05
       streaming: true
+    # Offline mode (uncomment and mount local data as Kaggle input dataset):
+    # - name: my_corpus
+    #   local_dir: /kaggle/input/my-corpus
+    #   weight: 1.0
 
 training:
   micro_batch_size: 1

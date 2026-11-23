@@ -194,7 +194,7 @@ def main() -> None:
         os.environ.setdefault("HF_DATASETS_CACHE", cfg["cache_dir"])
 
     model_cfg = ModelConfig(**cfg["model"])
-    tokenizer = load_or_build_tokenizer(cfg["tokenizer"], cfg["data"]["sources"])
+    tokenizer = load_or_build_tokenizer(cfg["tokenizer"], cfg["data"]["sources"], rank=rank)
 
     if not args.debug_smoke and hasattr(tokenizer, "vocab_size") and tokenizer.vocab_size:
         if int(cfg["model"].get("vocab_size", tokenizer.vocab_size)) != int(tokenizer.vocab_size):

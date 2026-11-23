@@ -1,4 +1,6 @@
 import random
+import json
+import os
 from typing import Iterator, Optional
 
 from datasets import load_dataset
@@ -14,11 +16,71 @@ def _normalize_weights(sources: list[dict]) -> list[float]:
     return [w / total for w in raw]
 
 
+def _read_local_jsonl(path: str) -> Iterator[str]:
+    with open(path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                text = obj.get('text') or obj.get('content') or obj.get('data')
+                if isinstance(text, str) and text.strip():
+                    yield text
+            except json.JSONDecodeError:
+                continue
+
+
+def _read_local_parquet(path: str) -> Iterator[str]:
+    try:
+        import pyarrow.parquet as pq
+        table = pq.read_table(path)
+        for col in ['text', 'content', 'data']:
+            if col in table.column_names:
+                for val in table[col].to_pylist():
+                    if isinstance(val, str) and val.strip():
+                        yield val
+                break
+    except Exception:
+        pass
+
+
+def _stream_local_corpus(data_dir: str, source_idx: int, seed: int, 
+                          rank: int, world_size: int, 
+                          worker_id: int, num_workers: int,
+                          shuffle_buffer: int) -> Iterator[str]:
+    """Stream local JSONL/Parquet files with sharding."""
+    files = sorted([f for f in os.listdir(data_dir) 
+                   if f.endswith('.jsonl') or f.endswith('.parquet')])
+    if not files:
+        return
+    
+    global_shard_id = rank * num_workers + worker_id
+    total_shards = world_size * num_workers
+    rng = random.Random(seed + source_idx * 997 + global_shard_id)
+    
+    doc_idx = 0
+    for fname in files:
+        fpath = os.path.join(data_dir, fname)
+        if fname.endswith('.jsonl'):
+            reader = _read_local_jsonl(fpath)
+        elif fname.endswith('.parquet'):
+            reader = _read_local_parquet(fpath)
+        else:
+            continue
+        
+        for text in reader:
+            if doc_idx % total_shards == global_shard_id:
+                yield text
+            doc_idx += 1
+
+
 class PackedMixtureDataset(IterableDataset):
     """
     Streams multiple text/code/math corpora according to domain weights,
     tokenizes documents with EOS delimiters, and packs them into fixed-length
     `(input_ids, labels)` chunks of length `seq_len`.
+    Supports both streaming from HF Hub and local JSONL/Parquet files (offline).
     """
 
     def __init__(
@@ -40,12 +102,10 @@ class PackedMixtureDataset(IterableDataset):
         self.shuffle_buffer = shuffle_buffer
         self.rank = rank
         self.world_size = world_size
-        # Use tokenizer EOS if available, but cap at model vocab size for safety
         tokenizer_eos = tokenizer.eos_token_id if tokenizer.eos_token_id is not None else 0
-        # We'll use a safe EOS per-source; default to tokenizer_eos
         self.default_eos_id = tokenizer_eos
 
-    def _make_source_iterator(self, src: dict, source_idx: int) -> Iterator[str]:
+    def _make_source_iterator(self, src: dict, source_idx: int):
         worker_info = torch.utils.data.get_worker_info()
         worker_id = worker_info.id if worker_info is not None else 0
         num_workers = worker_info.num_workers if worker_info is not None else 1
@@ -54,24 +114,31 @@ class PackedMixtureDataset(IterableDataset):
 
         rng = random.Random(self.seed + source_idx * 997 + global_shard_id)
 
-        # Handle synthetic dataset for smoke tests
+        # Synthetic dataset for smoke tests
         if src.get("dataset_id") == "synthetic":
-            # Yield token IDs directly within model vocab range
-            # Use vocab range [1, vocab_size-1], reserve 0 for padding/special
-            vocab_size = self.tokenizer.vocab_size if hasattr(self.tokenizer, 'vocab_size') else 1024
+            vocab_size = getattr(self.tokenizer, 'vocab_size', 1024)
             valid_tokens = list(range(1, min(vocab_size, 1024)))
             doc_idx = 0
             while True:
-                # Generate random document of 20-100 tokens
                 doc_len = rng.randint(20, 100)
                 tokens = [rng.choice(valid_tokens) for _ in range(doc_len)]
                 if doc_idx % total_shards == global_shard_id:
-                    yield tokens  # yield list of token IDs directly
+                    yield tokens
                 doc_idx += 1
                 if not src.get("loop", True) and doc_idx >= 100:
                     break
             return
 
+        # Local data directory (offline mode)
+        local_dir = src.get("local_dir")
+        if local_dir and os.path.exists(local_dir):
+            yield from _stream_local_corpus(
+                local_dir, source_idx, self.seed, 
+                self.rank, self.world_size, worker_id, num_workers, self.shuffle_buffer
+            )
+            return
+
+        # Streaming from HF Hub (online mode)
         ds = load_dataset(
             src["dataset_id"],
             name=src.get("config_name"),
@@ -102,12 +169,19 @@ class PackedMixtureDataset(IterableDataset):
         iterators = []
         active_weights = []
         is_synthetic_list = []
+        eos_ids = []
+
         for idx, src in enumerate(self.sources):
             try:
                 it = self._make_source_iterator(src, idx)
                 iterators.append(it)
                 active_weights.append(self.weights[idx])
-                is_synthetic_list.append(src.get("dataset_id") == "synthetic")
+                is_synthetic = src.get("dataset_id") == "synthetic"
+                is_synthetic_list.append(is_synthetic)
+                if is_synthetic:
+                    eos_ids.append(1)
+                else:
+                    eos_ids.append(self.default_eos_id)
             except Exception as exc:
                 print(f"[data] Skipping source {src.get('name', src['dataset_id'])}: {exc}")
 
@@ -116,15 +190,6 @@ class PackedMixtureDataset(IterableDataset):
 
         w_sum = sum(active_weights)
         norm_w = [w / w_sum for w in active_weights]
-
-        # Build per-source EOS IDs (synthetic uses a safe ID within model vocab)
-        model_vocab_size = getattr(self.tokenizer, 'vocab_size', 1024)
-        eos_ids = []
-        for src in self.sources:
-            if src.get("dataset_id") == "synthetic":
-                eos_ids.append(1)  # Use token ID 1 as EOS for synthetic (within vocab)
-            else:
-                eos_ids.append(self.default_eos_id)
 
         token_buffer: list[int] = []
         while True:
