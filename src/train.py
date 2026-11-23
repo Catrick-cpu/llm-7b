@@ -215,13 +215,26 @@ def main() -> None:
     model_raw = model.module if isinstance(model, DDP) else model
 
     train_cfg = cfg["training"]
-    opt = torch.optim.AdamW(
-        model_raw.parameters(),
-        lr=float(train_cfg["learning_rate"]),
-        betas=(float(train_cfg["adam_beta1"]), float(train_cfg["adam_beta2"])),
-        eps=float(train_cfg["adam_eps"]),
-        weight_decay=float(train_cfg["weight_decay"]),
-    )
+    # Use 8-bit AdamW from bitsandbytes to fit 7B on 16GB T4
+    try:
+        import bitsandbytes as bnb
+        opt = bnb.optim.AdamW8bit(
+            model_raw.parameters(),
+            lr=float(train_cfg["learning_rate"]),
+            betas=(float(train_cfg["adam_beta1"]), float(train_cfg["adam_beta2"])),
+            eps=float(train_cfg["adam_eps"]),
+            weight_decay=float(train_cfg["weight_decay"]),
+        )
+        print("[optimizer] Using 8-bit AdamW (bitsandbytes)")
+    except ImportError:
+        opt = torch.optim.AdamW(
+            model_raw.parameters(),
+            lr=float(train_cfg["learning_rate"]),
+            betas=(float(train_cfg["adam_beta1"]), float(train_cfg["adam_beta2"])),
+            eps=float(train_cfg["adam_eps"]),
+            weight_decay=float(train_cfg["weight_decay"]),
+        )
+        print("[optimizer] Using standard AdamW (bitsandbytes not available)")
 
     precision = train_cfg.get("precision", "bf16")
     use_scaler = (device.type == "cuda") and (precision == "fp16") and (not torch.cuda.is_bf16_supported())
