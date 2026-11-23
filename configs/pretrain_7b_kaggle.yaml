@@ -29,7 +29,7 @@ tokenizer:
   # local_fallback_path: /kaggle/input/my-tokenizer  # local tokenizer directory
 
 data:
-  seq_len: 512
+  seq_len: 256
   num_workers: 0
   shuffle_buffer: 10000
   sources:
@@ -76,7 +76,7 @@ data:
 
 training:
   micro_batch_size: 1
-  gradient_accumulation_steps: 128
+  gradient_accumulation_steps: 256
   max_steps: 100000
   warmup_steps: 1000
   learning_rate: 3.0e-4

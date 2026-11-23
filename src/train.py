@@ -193,6 +193,11 @@ def main() -> None:
     if cfg.get("cache_dir"):
         os.environ.setdefault("HF_DATASETS_CACHE", cfg["cache_dir"])
 
+    # Clear CUDA cache before model creation
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
     model_cfg = ModelConfig(**cfg["model"])
     tokenizer = load_or_build_tokenizer(cfg["tokenizer"], cfg["data"]["sources"], rank=rank)
 
@@ -325,6 +330,9 @@ def main() -> None:
                 else:
                     loss.backward()
             accum_loss += float(loss.detach().item())
+            # Periodic cache clear to prevent fragmentation
+            if micro_idx % 32 == 0 and torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         if scaler.is_enabled():
             scaler.unscale_(opt)

@@ -7,7 +7,8 @@ MODE="${2:-train}"
 export PYTHONPATH="${PYTHONPATH:-}:$(pwd)"
 export TOKENIZERS_PARALLELISM="false"
 # Memory optimization for 16GB T4
-export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:64"
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:32"
+export CUDA_LAUNCH_BLOCKING=0
 
 if [[ "$MODE" == "smoke" ]]; then
   python3 -m src.train --config "$CONFIG_PATH" --debug-smoke
