@@ -139,9 +139,12 @@ class PackedMixtureDataset(IterableDataset):
             return
 
         # Streaming from HF Hub (online mode)
+        config_name = src.get("config_name")
+        if config_name == "":
+            config_name = None
         ds = load_dataset(
             src["dataset_id"],
-            name=src.get("config_name"),
+            name=config_name,
             data_dir=src.get("data_dir"),
             split=src.get("split", "train"),
             streaming=bool(src.get("streaming", True)),
