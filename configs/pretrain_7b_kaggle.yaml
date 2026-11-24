@@ -34,7 +34,7 @@ data:
   num_workers: 0
   shuffle_buffer: 10000
   sources:
-    # Online mode (requires Internet=On) - using reliable public datasets
+    # Online mode (requires Internet=On) - using reliable public datasets with VERIFIED configs
     - name: c4_en
       dataset_id: allenai/c4
       config_name: en
@@ -44,7 +44,7 @@ data:
       streaming: true
     - name: code_parrot
       dataset_id: transformersbook/codeparrot
-      config_name: clean
+      config_name: default
       split: train
       text_field: content
       weight: 0.20
