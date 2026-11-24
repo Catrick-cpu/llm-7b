@@ -40,21 +40,14 @@ data:
       config_name: en
       split: train
       text_field: text
-      weight: 0.50
-      streaming: true
-    - name: the_pile
-      dataset_id: EleutherAI/pile
-      config_name: null
-      split: train
-      text_field: text
-      weight: 0.30
+      weight: 0.60
       streaming: true
     - name: code_parrot
       dataset_id: transformersbook/codeparrot
       config_name: clean
       split: train
       text_field: content
-      weight: 0.10
+      weight: 0.20
       streaming: true
     - name: wikipedia_en
       dataset_id: wikimedia/wikipedia
@@ -63,7 +56,21 @@ data:
       text_field: text
       weight: 0.10
       streaming: true
-    # Alternative: FineWeb (uncomment if you want, but configs change often)
+    - name: slim_pajama
+      dataset_id: cerebras/SlimPajama-627B
+      config_name: null
+      split: train
+      text_field: text
+      weight: 0.10
+      streaming: true
+    # Alternative datasets (uncomment if needed):
+    # - name: the_pile
+    #   dataset_id: EleutherAI/pile
+    #   config_name: null
+    #   split: train
+    #   text_field: text
+    #   weight: 0.30
+    #   streaming: true
     # - name: fineweb_edu
     #   dataset_id: HuggingFaceFW/fineweb-edu
     #   config_name: sample-10BT
