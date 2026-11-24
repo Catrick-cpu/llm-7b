@@ -4,7 +4,7 @@ output_dir: ./checkpoints/llm-7b
 cache_dir: ./cache
 
 model:
-  vocab_size: 65536
+  vocab_size: 50257
   hidden_size: 1536
   intermediate_size: 4096
   num_hidden_layers: 24
@@ -18,11 +18,11 @@ model:
   gradient_checkpointing: true
 
 tokenizer:
-  pretrained_or_path: null
+  pretrained_or_path: gpt2
   fallback_tokenizer: gpt2
-  train_if_missing: true
+  train_if_missing: false
   tokenizer_out_dir: ./tokenizer_65k
-  vocab_size: 65536
+  vocab_size: 50257
   sample_chars_for_training: 20000000
 
 data:
@@ -30,40 +30,34 @@ data:
   num_workers: 0
   shuffle_buffer: 10000
   sources:
-    - name: fineweb_edu
-      dataset_id: HuggingFaceFW/fineweb-edu
-      config_name: sample-10BT
+    # Online mode (requires Internet=On) - using reliable public datasets with VERIFIED configs
+    - name: c4_en
+      dataset_id: allenai/c4
+      config_name: en
       split: train
       text_field: text
-      weight: 0.50
-      streaming: true
-    - name: fineweb
-      dataset_id: HuggingFaceFW/fineweb
-      config_name: sample-10BT
-      split: train
-      text_field: text
-      weight: 0.30
+      weight: 0.60
       streaming: true
     - name: code_parrot
       dataset_id: transformersbook/codeparrot
-      config_name: clean
+      config_name: default
       split: train
       text_field: content
-      weight: 0.10
-      streaming: true
-    - name: open_web_math
-      dataset_id: open-web-math/open-web-math
-      config_name: null
-      split: train
-      text_field: text
-      weight: 0.05
+      weight: 0.20
       streaming: true
     - name: wikipedia_en
       dataset_id: wikimedia/wikipedia
       config_name: 20231101.en
       split: train
       text_field: text
-      weight: 0.05
+      weight: 0.10
+      streaming: true
+    - name: slim_pajama
+      dataset_id: cerebras/SlimPajama-627B
+      config_name: 
+      split: train
+      text_field: text
+      weight: 0.10
       streaming: true
 
 training:

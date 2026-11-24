@@ -16,9 +16,12 @@ def _stream_corpus_texts(sources: list[dict], max_chars: int) -> Iterator[str]:
         if total_chars >= max_chars:
             break
         try:
+            config_name = src.get("config_name")
+            if config_name == "":
+                config_name = None
             ds = load_dataset(
                 src["dataset_id"],
-                name=src.get("config_name"),
+                name=config_name,
                 data_dir=src.get("data_dir"),
                 split=src.get("split", "train"),
                 streaming=True,
