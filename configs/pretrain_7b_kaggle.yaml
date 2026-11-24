@@ -58,7 +58,7 @@ data:
       streaming: true
     - name: slim_pajama
       dataset_id: cerebras/SlimPajama-627B
-      config_name: null
+      config_name: 
       split: train
       text_field: text
       weight: 0.10
