@@ -70,6 +70,22 @@ data:
       text_field: text
       weight: 0.05
       streaming: true
+    # Fallback: simpler public datasets that definitely work
+    # Uncomment if above fail:
+    # - name: c4_en
+    #   dataset_id: allenai/c4
+    #   config_name: en
+    #   split: train
+    #   text_field: text
+    #   weight: 0.50
+    #   streaming: true
+    # - name: the_pile
+    #   dataset_id: EleutherAI/pile
+    #   config_name: null
+    #   split: train
+    #   text_field: text
+    #   weight: 0.50
+    #   streaming: true
     # Offline mode (uncomment and mount local data as Kaggle input dataset):
     # - name: my_corpus
     #   local_dir: /kaggle/input/my-corpus
