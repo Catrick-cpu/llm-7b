@@ -4,7 +4,7 @@ output_dir: /kaggle/working/checkpoints/llm-7b
 cache_dir: /kaggle/working/cache
 
 model:
-  vocab_size: 65536
+  vocab_size: 50257
   hidden_size: 1536
   intermediate_size: 4096
   num_hidden_layers: 24
@@ -18,11 +18,12 @@ model:
   gradient_checkpointing: true
 
 tokenizer:
-  pretrained_or_path: null
+  # Use GPT-2 tokenizer (pre-trained, no training needed) - vocab_size=50257
+  pretrained_or_path: gpt2
   fallback_tokenizer: gpt2
-  train_if_missing: true
+  train_if_missing: false
   tokenizer_out_dir: /kaggle/working/tokenizer_65k
-  vocab_size: 65536
+  vocab_size: 50257
   sample_chars_for_training: 20000000
   # Offline mode: set these if you have local data
   # local_data_dir: /kaggle/input/my-corpus  # directory with .jsonl/.parquet files

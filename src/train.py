@@ -7,8 +7,6 @@ import time
 from typing import Optional
 
 import torch
-import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 import yaml
 
@@ -18,27 +16,16 @@ from src.model import Llama7BForCausalLM, ModelConfig
 from src.tokenizer import load_or_build_tokenizer
 
 
-def setup_distributed() -> tuple[int, int, int, torch.device]:
-    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
-        rank = int(os.environ["RANK"])
-        world_size = int(os.environ["WORLD_SIZE"])
-        local_rank = int(os.environ.get("LOCAL_RANK", 0))
-        backend = "nccl" if torch.cuda.is_available() else "gloo"
-        dist.init_process_group(backend=backend)
-        if torch.cuda.is_available():
-            torch.cuda.set_device(local_rank)
-            device = torch.device(f"cuda:{local_rank}")
-        else:
-            device = torch.device("cpu")
-        return rank, world_size, local_rank, device
-
+def setup_single_gpu() -> tuple[int, int, int, torch.device]:
+    """Force single GPU training - no DDP, no distributed."""
+    # Explicitly unset any distributed env vars that Kaggle might set
+    for key in ["RANK", "WORLD_SIZE", "LOCAL_RANK", "MASTER_ADDR", "MASTER_PORT"]:
+        os.environ.pop(key, None)
+    
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        torch.cuda.set_device(0)
     return 0, 1, 0, device
-
-
-def cleanup_distributed(world_size: int) -> None:
-    if world_size > 1 and dist.is_initialized():
-        dist.destroy_process_group()
 
 
 def get_lr(step: int, warmup_steps: int, max_steps: int, max_lr: float, min_lr_ratio: float) -> float:
@@ -182,8 +169,8 @@ def main() -> None:
     if args.debug_smoke:
         cfg = apply_debug_smoke_overrides(cfg)
 
-    rank, world_size, _, device = setup_distributed()
-    is_main = rank == 0
+    rank, world_size, _, device = setup_single_gpu()
+    is_main = True  # Always main process in single GPU mode
 
     seed = int(cfg.get("seed", 42)) + rank
     torch.manual_seed(seed)
@@ -213,11 +200,7 @@ def main() -> None:
             f"non_embed={counts['non_embedding']:,} ({counts['non_embedding']/1e9:.2f}B)"
         )
 
-    if world_size > 1:
-        ddp_kwargs = {"device_ids": [device.index]} if device.type == "cuda" else {}
-        model = DDP(model, **ddp_kwargs)
-
-    model_raw = model.module if isinstance(model, DDP) else model
+    model_raw = model  # No DDP in single GPU mode
 
     train_cfg = cfg["training"]
     # Use 8-bit AdamW from bitsandbytes to fit 7B on 16GB T4
@@ -268,8 +251,8 @@ def main() -> None:
         seq_len=int(cfg["data"]["seq_len"]),
         seed=int(cfg.get("seed", 42)),
         shuffle_buffer=int(cfg["data"].get("shuffle_buffer", 10000)),
-        rank=rank,
-        world_size=world_size,
+        rank=0,
+        world_size=1,
     )
     loader = DataLoader(
         dataset,
@@ -314,21 +297,15 @@ def main() -> None:
             batch = next(data_iter)
             input_ids = batch["input_ids"].to(device, non_blocking=True)
             labels = batch["labels"].to(device, non_blocking=True)
-            step_tokens += input_ids.numel() * world_size
+            step_tokens += input_ids.numel()
 
-            sync_ctx = (
-                model.no_sync()
-                if (isinstance(model, DDP) and micro_idx < grad_accum - 1)
-                else torch.autocast(device_type=device.type, enabled=False)
-            )
-            with sync_ctx:
-                with get_amp_context(precision, device):
-                    out = model(input_ids=input_ids, labels=labels)
-                    loss = out["loss"] / grad_accum
-                if scaler.is_enabled():
-                    scaler.scale(loss).backward()
-                else:
-                    loss.backward()
+            with get_amp_context(precision, device):
+                out = model(input_ids=input_ids, labels=labels)
+                loss = out["loss"] / grad_accum
+            if scaler.is_enabled():
+                scaler.scale(loss).backward()
+            else:
+                loss.backward()
             accum_loss += float(loss.detach().item())
             # Periodic cache clear to prevent fragmentation
             if micro_idx % 32 == 0 and torch.cuda.is_available():
@@ -386,7 +363,7 @@ def main() -> None:
             )
             print(f"[checkpoint] Saved {ckpt_path}")
 
-    cleanup_distributed(world_size)
+    cleanup_single_gpu()
 
 
 if __name__ == "__main__":
