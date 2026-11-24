@@ -1,0 +1,79 @@
+run_name: llm-200m-local
+seed: 42
+output_dir: ./checkpoints/llm-200m
+cache_dir: ./cache
+
+model:
+  vocab_size: 50257
+  hidden_size: 768
+  intermediate_size: 2048
+  num_hidden_layers: 16
+  num_attention_heads: 12
+  num_key_value_heads: 4
+  max_position_embeddings: 2048
+  rope_theta: 100000.0
+  rms_norm_eps: 1.0e-5
+  tie_word_embeddings: true
+  use_flash_attn: false
+  gradient_checkpointing: false
+
+tokenizer:
+  pretrained_or_path: gpt2
+  fallback_tokenizer: gpt2
+  train_if_missing: false
+  tokenizer_out_dir: ./tokenizer_65k
+  vocab_size: 50257
+
+data:
+  seq_len: 512
+  num_workers: 0
+  shuffle_buffer: 5000
+  sources:
+    - name: c4_en
+      dataset_id: allenai/c4
+      config_name: en
+      split: train
+      text_field: text
+      weight: 0.7
+      streaming: true
+    - name: code_parrot
+      dataset_id: transformersbook/codeparrot
+      config_name: default
+      split: train
+      text_field: content
+      weight: 0.2
+      streaming: true
+    - name: wikipedia_en
+      dataset_id: wikimedia/wikipedia
+      config_name: 20231101.en
+      split: train
+      text_field: text
+      weight: 0.1
+      streaming: true
+
+training:
+  micro_batch_size: 2
+  gradient_accumulation_steps: 32
+  max_steps: 20000
+  warmup_steps: 1000
+  learning_rate: 6e-4
+  min_lr_ratio: 0.1
+  weight_decay: 0.1
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  adam_eps: 1e-8
+  max_grad_norm: 1.0
+  precision: fp32
+  log_interval: 50
+  save_interval: 1000
+  eval_interval: 1000
+  max_checkpoints_to_keep: 3
+  max_runtime_seconds: 86400
+  resume_from_checkpoint: auto
+
+eval:
+  eval_batches: 10
+  completion_prompts:
+    - "def fibonacci(n):"
+    - "The capital of France is"
+    - "In machine learning, gradient descent"
