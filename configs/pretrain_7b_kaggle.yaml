@@ -34,17 +34,17 @@ data:
   num_workers: 0
   shuffle_buffer: 10000
   sources:
-    # Online mode (requires Internet=On):
-    - name: fineweb_edu
-      dataset_id: HuggingFaceFW/fineweb-edu
-      config_name: sample-10BT
+    # Online mode (requires Internet=On) - using reliable public datasets
+    - name: c4_en
+      dataset_id: allenai/c4
+      config_name: en
       split: train
       text_field: text
       weight: 0.50
       streaming: true
-    - name: fineweb
-      dataset_id: HuggingFaceFW/fineweb
-      config_name: sample-10BT
+    - name: the_pile
+      dataset_id: EleutherAI/pile
+      config_name: null
       split: train
       text_field: text
       weight: 0.30
@@ -56,35 +56,34 @@ data:
       text_field: content
       weight: 0.10
       streaming: true
-    - name: open_web_math
-      dataset_id: open-web-math/open-web-math
-      config_name: null
-      split: train
-      text_field: text
-      weight: 0.05
-      streaming: true
     - name: wikipedia_en
       dataset_id: wikimedia/wikipedia
       config_name: 20231101.en
       split: train
       text_field: text
-      weight: 0.05
+      weight: 0.10
       streaming: true
-    # Fallback: simpler public datasets that definitely work
-    # Uncomment if above fail:
-    # - name: c4_en
-    #   dataset_id: allenai/c4
-    #   config_name: en
+    # Alternative: FineWeb (uncomment if you want, but configs change often)
+    # - name: fineweb_edu
+    #   dataset_id: HuggingFaceFW/fineweb-edu
+    #   config_name: sample-10BT
     #   split: train
     #   text_field: text
     #   weight: 0.50
     #   streaming: true
-    # - name: the_pile
-    #   dataset_id: EleutherAI/pile
+    # - name: fineweb
+    #   dataset_id: HuggingFaceFW/fineweb
+    #   config_name: sample-10BT
+    #   split: train
+    #   text_field: text
+    #   weight: 0.30
+    #   streaming: true
+    # - name: open_web_math
+    #   dataset_id: open-web-math/open-web-math
     #   config_name: null
     #   split: train
     #   text_field: text
-    #   weight: 0.50
+    #   weight: 0.05
     #   streaming: true
     # Offline mode (uncomment and mount local data as Kaggle input dataset):
     # - name: my_corpus
