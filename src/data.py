@@ -149,6 +149,19 @@ class PackedMixtureDataset(IterableDataset):
             split=src.get("split", "train"),
             streaming=bool(src.get("streaming", True)),
         )
+        # Verify dataset is accessible by peeking first row
+        try:
+            first_row = next(iter(ds))
+        except Exception as e:
+            raise RuntimeError(f"Dataset {src['dataset_id']} not accessible: {e}")
+        # Reset iterator
+        ds = load_dataset(
+            src["dataset_id"],
+            name=config_name,
+            data_dir=src.get("data_dir"),
+            split=src.get("split", "train"),
+            streaming=bool(src.get("streaming", True)),
+        )
         if hasattr(ds, "shuffle") and self.shuffle_buffer > 0:
             ds = ds.shuffle(seed=self.seed + source_idx, buffer_size=self.shuffle_buffer)
 
