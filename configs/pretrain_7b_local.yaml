@@ -30,13 +30,13 @@ data:
   num_workers: 0
   shuffle_buffer: 10000
   sources:
-    # Online mode (requires Internet=On) - VERIFIED working datasets
+    # Online mode (requires Internet=On) - ONLY verified working datasets
     - name: c4_en
       dataset_id: allenai/c4
       config_name: en
       split: train
       text_field: text
-      weight: 0.60
+      weight: 0.65
       streaming: true
     - name: code_parrot
       dataset_id: transformersbook/codeparrot
@@ -50,14 +50,7 @@ data:
       config_name: 20231101.en
       split: train
       text_field: text
-      weight: 0.10
-      streaming: true
-    - name: red_pajama
-      dataset_id: togethercomputer/RedPajama-Data-1T
-      config_name: default
-      split: train
-      text_field: text
-      weight: 0.10
+      weight: 0.15
       streaming: true
 
 training:
